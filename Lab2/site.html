@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Multi-Gene Transcription & Translation</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f9; }
+    textarea { width: 100%; height: 150px; font-family: monospace; font-size: 14px; margin-bottom: 10px; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    .gene-card { background: white; padding: 15px; margin-top: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    pre { background: #eee; padding: 10px; overflow-x: auto; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+  <h2>DNA Transcription & Translation App</h2>
+  <label for="dnaInput">Enter one or more DNA sequences (one per line or FASTA format):</label><br>
+  <textarea id="dnaInput" placeholder="CCGTTACGCATGGCTTTTGAACTGCCAAAGGTTTACGCTGATGCTCCAGGACTTACCGGAAATGGTCTACGACTTTGCTAACCCATGACGGTACCTGAACTGGCTAACCGTACGTTAGCCGAT&#10;ATGGCCAAATAG&#10;ATGGCCAAATTTGCCCCC"></textarea>
+  <br>
+  <button onclick="processAllGenes()">Translate All Genes</button>
+
+  <div id="outputResults"></div>
+
+  <script>
+  const CODON_TABLE = {
+    'UUU': ['Phe', 'F'], 'UUC': ['Phe', 'F'], 'UUA': ['Leu', 'L'], 'UUG': ['Leu', 'L'],
+    'CUU': ['Leu', 'L'], 'CUC': ['Leu', 'L'], 'CUA': ['Leu', 'L'], 'CUG': ['Leu', 'L'],
+    'AUU': ['Ile', 'I'], 'AUC': ['Ile', 'I'], 'AUA': ['Ile', 'I'], 'AUG': ['Met', 'M'],
+    'GUU': ['Val', 'V'], 'GUC': ['Val', 'V'], 'GUA': ['Val', 'V'], 'GUG': ['Val', 'V'],
+    'UCU': ['Ser', 'S'], 'UCC': ['Ser', 'S'], 'UCA': ['Ser', 'S'], 'UCG': ['Ser', 'S'],
+    'CCU': ['Pro', 'P'], 'CCC': ['Pro', 'P'], 'CCA': ['Pro', 'P'], 'CCG': ['Pro', 'P'],
+    'ACU': ['Thr', 'T'], 'ACC': ['Thr', 'T'], 'ACA': ['Thr', 'T'], 'ACG': ['Thr', 'T'],
+    'GCU': ['Ala', 'A'], 'GCC': ['Ala', 'A'], 'GCA': ['Ala', 'A'], 'GCG': ['Ala', 'A'],
+    'UAU': ['Tyr', 'Y'], 'UAC': ['Tyr', 'Y'], 'UAA': ['STOP', '*'], 'UAG': ['STOP', '*'],
+    'CAU': ['His', 'H'], 'CAC': ['His', 'H'], 'CAA': ['Gln', 'Q'], 'CAG': ['Gln', 'Q'],
+    'AAU': ['Asn', 'N'], 'AAC': ['Asn', 'N'], 'AAA': ['Lys', 'K'], 'AAG': ['Lys', 'K'],
+    'GAU': ['Asp', 'D'], 'GAC': ['Asp', 'D'], 'GAA': ['Glu', 'E'], 'GAG': ['Glu', 'E'],
+    'UGU': ['Cys', 'C'], 'UGC': ['Cys', 'C'], 'UGA': ['STOP', '*'], 'UGG': ['Trp', 'W'],
+    'CGU': ['Arg', 'R'], 'CGC': ['Arg', 'R'], 'CGA': ['Arg', 'R'], 'CGG': ['Arg', 'R'],
+    'AGU': ['Ser', 'S'], 'AGC': ['Ser', 'S'], 'AGA': ['Arg', 'R'], 'AGG': ['Arg', 'R'],
+    'GGU': ['Gly', 'G'], 'GGC': ['Gly', 'G'], 'GGA': ['Gly', 'G'], 'GGG': ['Gly', 'G']
+  };
+
+  function processAllGenes() {
+    const rawInput = document.getElementById('dnaInput').value;
+    const outputContainer = document.getElementById('outputResults');
+    outputContainer.innerHTML = '';
+
+    // Separate input lines (handles multi-gene inputs)
+    const lines = rawInput.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('>'));
+
+    if (lines.length === 0) {
+      outputContainer.innerHTML = '<p>Please enter at least one DNA sequence.</p>';
+      return;
+    }
+
+    lines.forEach((dnaRaw, index) => {
+      // 1. Clean sequence & transcribe DNA (T) -> RNA (U)
+      const dna = dnaRaw.replace(/[^atcgATCG]/g, '').toUpperCase();
+      const rna = dna.replaceAll('T', 'U');
+
+      // 2. Scan for first AUG start codon
+      const augIdx = rna.indexOf('AUG');
+
+      let resultHtml = `<div class="gene-card">`;
+      resultHtml += `<h3>Gene #${index + 1}</h3>`;
+      resultHtml += `<strong>DNA Length:</strong> ${dna.length}<br>`;
+      resultHtml += `<strong>RNA Sequence:</strong><br><pre>${rna}</pre>`;
+
+      if (augIdx === -1) {
+        resultHtml += `<p style="color: red;"><strong>No AUG start codon found in this sequence!</strong></p>`;
+        resultHtml += `</div>`;
+        outputContainer.innerHTML += resultHtml;
+        return;
+      }
+
+      resultHtml += `<strong>First AUG found at position:</strong> ${augIdx + 1}<br>`;
+
+      // 3. Read triplets starting from AUG
+      const codons = [];
+      const aa3Letter = [];
+      const aa1Letter = [];
+      let stoppedAt = "No stop codon found (reached end of sequence)";
+
+      for (let i = augIdx; i < rna.length - 2; i += 3) {
+        const codon = rna.substring(i, i + 3);
+        const info = CODON_TABLE[codon] || ['???', '?'];
+
+        // Encountered Stop Codon
+        if (info[0] === 'STOP') {
+          codons.push(codon);
+          stoppedAt = `Stopped at stop codon: ${codon}`;
+          break;
+        }
+
+        codons.push(codon);
+        aa3Letter.push(info[0]);
+        aa1Letter.push(info[1]);
+      }
+
+      // 4. Render details
+      resultHtml += `<strong>Reading frame:</strong><br><pre>${codons.join('-')}</pre>`;
+      resultHtml += `<strong>3-letter amino acid sequence:</strong><br><pre>${aa3Letter.join('-')}</pre>`;
+      resultHtml += `<strong>1-letter amino acid sequence:</strong><br><pre>${aa1Letter.join('-')}</pre>`;
+      resultHtml += `<strong>Status:</strong> ${stoppedAt}<br>`;
+      resultHtml += `</div>`;
+
+      outputContainer.innerHTML += resultHtml;
+    });
+  }
+  </script>
+
+</body>
+</html>

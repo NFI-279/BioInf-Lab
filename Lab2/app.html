@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gene Translation & Subsequence Analyzer</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f9; color: #333; }
+    textarea { width: 100%; height: 140px; font-family: monospace; font-size: 14px; margin-bottom: 10px; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+    button:hover { background: #0056b3; }
+    .gene-card { background: white; padding: 15px; margin-top: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .winner-card { background: #e8f5e9; border: 2px solid #2e7d32; padding: 15px; margin-top: 20px; border-radius: 6px; }
+    .subseq-box { background: #f8f9fa; border-left: 4px solid #17a2b8; padding: 8px 12px; margin: 6px 0; font-family: monospace; }
+    pre { background: #eee; padding: 10px; overflow-x: auto; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+  <h2>Gene Translation & Nested Subsequence Analyzer</h2>
+  <label for="dnaInput">Enter one or more DNA/RNA sequences (one per line):</label><br>
+  <textarea id="dnaInput" placeholder="CCGTTACGCATGGCTTTTGAACTGCCAAAGGTTTACGCTGATGCTCCAGGACTTACCGGAAATGGTCTACGACTTTGCTAACCCATGACGGTACCTGAACTGGCTAACCGTACGTTAGCCGAT&#10;ATGGCCATGAAATAGATGCCCUAA&#10;ATGGCCAAATTTGCCCCC"></textarea>
+  <br>
+  <button onclick="analyzeAllGenes()">Analyze Genes & Subsequences</button>
+
+  <div id="outputResults"></div>
+
+  <script>
+  const CODON_TABLE = {
+    'UUU': ['Phe', 'F'], 'UUC': ['Phe', 'F'], 'UUA': ['Leu', 'L'], 'UUG': ['Leu', 'L'],
+    'CUU': ['Leu', 'L'], 'CUC': ['Leu', 'L'], 'CUA': ['Leu', 'L'], 'CUG': ['Leu', 'L'],
+    'AUU': ['Ile', 'I'], 'AUC': ['Ile', 'I'], 'AUA': ['Ile', 'I'], 'AUG': ['Met', 'M'],
+    'GUU': ['Val', 'V'], 'GUC': ['Val', 'V'], 'GUA': ['Val', 'V'], 'GUG': ['Val', 'V'],
+    'UCU': ['Ser', 'S'], 'UCC': ['Ser', 'S'], 'UCA': ['Ser', 'S'], 'UCG': ['Ser', 'S'],
+    'CCU': ['Pro', 'P'], 'CCC': ['Pro', 'P'], 'CCA': ['Pro', 'P'], 'CCG': ['Pro', 'P'],
+    'ACU': ['Thr', 'T'], 'ACC': ['Thr', 'T'], 'ACA': ['Thr', 'T'], 'ACG': ['Thr', 'T'],
+    'GCU': ['Ala', 'A'], 'GCC': ['Ala', 'A'], 'GCA': ['Ala', 'A'], 'GCG': ['Ala', 'A'],
+    'UAU': ['Tyr', 'Y'], 'UAC': ['Tyr', 'Y'], 'UAA': ['STOP', '*'], 'UAG': ['STOP', '*'],
+    'CAU': ['His', 'H'], 'CAC': ['His', 'H'], 'CAA': ['Gln', 'Q'], 'CAG': ['Gln', 'Q'],
+    'AAU': ['Asn', 'N'], 'AAC': ['Asn', 'N'], 'AAA': ['Lys', 'K'], 'AAG': ['Lys', 'K'],
+    'GAU': ['Asp', 'D'], 'GAC': ['Asp', 'D'], 'GAA': ['Glu', 'E'], 'GAG': ['Glu', 'E'],
+    'UGU': ['Cys', 'C'], 'UGC': ['Cys', 'C'], 'UGA': ['STOP', '*'], 'UGG': ['Trp', 'W'],
+    'CGU': ['Arg', 'R'], 'CGC': ['Arg', 'R'], 'CGA': ['Arg', 'R'], 'CGG': ['Arg', 'R'],
+    'AGU': ['Ser', 'S'], 'AGC': ['Ser', 'S'], 'AGA': ['Arg', 'R'], 'AGG': ['Arg', 'R'],
+    'GGU': ['Gly', 'G'], 'GGC': ['Gly', 'G'], 'GGA': ['Gly', 'G'], 'GGG': ['Gly', 'G']
+  };
+
+  // Helper function to extract ALL sub-sequences starting at any AUG
+  function findAllAUGSubsequences(rna) {
+    const subsequences = [];
+
+    // Scan every position in sequence for AUG
+    for (let i = 0; i <= rna.length - 3; i++) {
+      if (rna.substring(i, i + 3) === 'AUG') {
+        const codons = [];
+        const aa1Letter = [];
+        let stoppedAt = "No stop codon (end of sequence)";
+
+        // Read triplets starting from this specific AUG
+        for (let j = i; j <= rna.length - 3; j += 3) {
+          const codon = rna.substring(j, j + 3);
+          const info = CODON_TABLE[codon] || ['???', '?'];
+
+          codons.push(codon);
+
+          if (info[0] === 'STOP') {
+            stoppedAt = `Stop codon (${codon})`;
+            break;
+          }
+
+          aa1Letter.push(info[1]);
+        }
+
+        subsequences.push({
+          startPos: i + 1, // 1-based index
+          codons: codons.join('-'),
+          protein: aa1Letter.join(''),
+          status: stoppedAt
+        });
+      }
+    }
+    return subsequences;
+  }
+
+  function analyzeAllGenes() {
+    const rawInput = document.getElementById('dnaInput').value;
+    const outputContainer = document.getElementById('outputResults');
+    outputContainer.innerHTML = '';
+
+    const lines = rawInput.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('>'));
+
+    if (lines.length === 0) {
+      outputContainer.innerHTML = '<p>Please enter at least one DNA/RNA sequence.</p>';
+      return;
+    }
+
+    let maxSubseqCount = -1;
+    let winningGeneIndex = -1;
+    let geneSummaryData = [];
+
+    lines.forEach((dnaRaw, index) => {
+      const dna = dnaRaw.replace(/[^atcgATCG]/g, '').toUpperCase();
+      const rna = dna.replaceAll('T', 'U');
+
+      // Find all AUG subsequences for this gene
+      const subseqs = findAllAUGSubsequences(rna);
+      
+      // Track max count
+      if (subseqs.length > maxSubseqCount) {
+        maxSubseqCount = subseqs.length;
+        winningGeneIndex = index;
+      }
+
+      geneSummaryData.push({
+        geneNum: index + 1,
+        dnaLength: dna.length,
+        rna: rna,
+        subseqs: subseqs
+      });
+    });
+
+    // 1. Highlight the Gene with the Maximum Amount of Subsequences
+    if (winningGeneIndex !== -1 && maxSubseqCount > 0) {
+      const winner = geneSummaryData[winningGeneIndex];
+      let winHtml = `<div class="winner-card">`;
+      winHtml += `<h2>🏆 Maximum Subsequences Found in Gene #${winner.geneNum}</h2>`;
+      winHtml += `<p><strong>Total AUG Subsequences:</strong> ${maxSubseqCount}</p>`;
+      winHtml += `<p><strong>RNA Sequence:</strong></p><pre>${winner.rna}</pre>`;
+      winHtml += `</div>`;
+      outputContainer.innerHTML += winHtml;
+    }
+
+    // 2. Render Details for Every Gene
+    geneSummaryData.forEach(gene => {
+      let resultHtml = `<div class="gene-card">`;
+      resultHtml += `<h3>Gene #${gene.geneNum}</h3>`;
+      resultHtml += `<strong>DNA Length:</strong> ${gene.dnaLength}<br>`;
+      resultHtml += `<strong>RNA Sequence:</strong><br><pre>${gene.rna}</pre>`;
+      resultHtml += `<strong>Total AUG Subsequences Detected:</strong> ${gene.subseqs.length}<br><br>`;
+
+      if (gene.subseqs.length === 0) {
+        resultHtml += `<p style="color: red;"><strong>No AUG start codons found in this sequence.</strong></p>`;
+      } else {
+        resultHtml += `<strong>All Nested Subsequences (AUG → STOP):</strong>`;
+        gene.subseqs.forEach((sub, subIdx) => {
+          resultHtml += `
+            <div class="subseq-box">
+              <strong>Subsequence #${subIdx + 1}</strong> (Starts at position ${sub.startPos}):<br>
+              <strong>Reading Frame:</strong> ${sub.codons}<br>
+              <strong>Protein Result:</strong> ${sub.protein || "(Empty)"}<br>
+              <strong>Status:</strong> ${sub.status}
+            </div>`;
+        });
+      }
+
+      resultHtml += `</div>`;
+      outputContainer.innerHTML += resultHtml;
+    });
+  }
+  </script>
+
+</body>
+</html>
