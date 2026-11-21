@@ -1,0 +1,16 @@
+Exercise 1 - Gel electrophoresis
+Source: 480540219_genomic.fna
+FASTA record: AB818503.1 Influenza A virus (A/chicken/Soc Trang/5/2012(H5N1)) viral cRNA, segment 2, complete genome
+Full sequence length: 2309 bp
+Approximate double-stranded DNA molecular weight:
+
+Sample 01: start=115, length=1409 bp, MW=870.74 kDa, distance=5.01 cm
+Sample 02: start=1519, length=151 bp, MW=93.35 kDa, distance=9.22 cm
+Sample 03: start=502, length=663 bp, MW=409.74 kDa, distance=6.43 cm
+Sample 04: start=286, length=557 bp, MW=344.24 kDa, distance=6.76 cm
+Sample 05: start=53, length=1608 bp, MW=993.72 kDa, distance=4.76 cm
+Sample 06: start=90, length=1485 bp, MW=917.71 kDa, distance=4.91 cm
+Sample 07: start=433, length=1309 bp, MW=808.95 kDa, distance=5.15 cm
+Sample 08: start=62, length=165 bp, MW=102.00 kDa, distance=9.05 cm
+Sample 09: start=448, length=291 bp, MW=179.86 kDa, distance=7.98 cm
+Sample 10: start=1035, length=576 bp, MW=355.98 kDa, distance=6.70 cm
